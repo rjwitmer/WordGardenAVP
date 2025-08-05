@@ -14,17 +14,21 @@ struct ContentView: View {
     @State private var wordsGuessed: Int = 0
     @State private var wordsMissed: Int = 0
     @State private var gameStatusMessage: String = "How Many Guesses to Uncover the Hidden Word?"
-    @State private var currentWordIndex: Int = 0
+    @State private var currentWordIndex: Int = 0    // Index in wordsToGuess
+    @State private var wordToGuess: String = ""
     @State private var currentLetterGuess: String = ""
-    @State private var imageName: String = "flower8"
+    @State private var lettersGuessed: String = ""
+    @State private var revealedWord: String = ""
+    @State private var imageIndex: Int = 8
+    @State private var imageName: String = "flower"
     @State private var playAgainHidden: Bool = true
-    @State private var wordsToGuess: [String] = ["SWIFT",
-                                                 "DOG",
-                                                 "KITTY",
-                                                 "ALMANC",
-                                                 "SPANIEL",
-                                                 "TORNADO",
-                                                 "REFRIGERATOR"]
+    private let wordsToGuess: [String] = ["SWIFT",
+                                          "DOG",
+                                          "KITTY",
+                                          "ALMANC",
+                                          "SPANIEL",
+                                          "TORNADO",
+                                          "REFRIGERATOR"]
     
     var body: some View {
         VStack {
@@ -43,14 +47,13 @@ struct ContentView: View {
             .padding()
             
             Spacer()
-
+            
             Text(gameStatusMessage)
                 .font(.title)
                 .multilineTextAlignment(.center)
                 .padding()
             
-            // TODO: Switch to wordsToGuess[currentWordIndex]
-            Text("_ _ _ _ _")
+            Text(revealedWord)
                 .font(.title)
             if playAgainHidden {
                 HStack {
@@ -69,16 +72,22 @@ struct ContentView: View {
                         .font(.title)
                         .multilineTextAlignment(.center)
                         .textFieldStyle(.automatic)
-                        .frame(width: 30)
+                        .frame(width: 60, height: 60)
                         .overlay {
                             RoundedRectangle(cornerRadius: 5)
                                 .stroke(style: StrokeStyle(lineWidth: 2))
                         }
                         .focused($textFieldIsFocused)
-                        
+                        .onSubmit {
+                            // Make sure there is a guessed letter and not nil
+                            guard currentLetterGuess != "" else {
+                                return
+                            }
+                            guessALetter()
+                        }
+                    
                     Button("Guess a Letter:") {
-                        // TODO: Guess a Letter button action here
-                        textFieldIsFocused = false
+                        guessALetter()
                     }
                     .disabled(currentLetterGuess.isEmpty)
                     .font(.title2)
@@ -99,20 +108,43 @@ struct ContentView: View {
                 .tint(.green)
             }
             
-
+            
             
             Spacer()
             
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.white)
-                Image(imageName)
+                Image(imageName + "\(imageIndex)")
                     .resizable()
                     .scaledToFit()
             }
         }
-//        .padding()
-
+        .onAppear() {
+            wordToGuess = wordsToGuess[currentWordIndex]
+            // CREATE A STRING FROM A REPEATING VALUE
+            revealedWord = "_" + String(repeating: " _", count: wordToGuess.count - 1)
+        }
+        //        .padding()
+        
+    }
+    
+    func guessALetter() {
+        textFieldIsFocused = false
+        lettersGuessed.append(currentLetterGuess)
+        revealedWord = wordToGuess.map { letter in
+            lettersGuessed.contains(letter) ? String(letter) : "_"
+        }.joined(separator: " ")
+        
+        if !wordToGuess.contains(currentLetterGuess){
+            if imageIndex > 0 {
+                imageIndex -= 1
+            } else {
+                // You Failed
+                imageIndex = 8
+            }
+        }
+        currentLetterGuess = ""
     }
 }
 
