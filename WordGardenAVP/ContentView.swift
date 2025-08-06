@@ -10,6 +10,8 @@ import RealityKit
 import RealityKitContent
 
 struct ContentView: View {
+    private static let maxGuesses: Int = 8  // Maximum Guesses - Need to refer to this as Self.maximumGuesses
+    
     @FocusState private var textFieldIsFocused: Bool
     @State private var wordsGuessed: Int = 0
     @State private var wordsMissed: Int = 0
@@ -19,13 +21,14 @@ struct ContentView: View {
     @State private var currentLetterGuess: String = ""
     @State private var lettersGuessed: String = ""
     @State private var revealedWord: String = ""
-    @State private var imageIndex: Int = 8
-    @State private var imageName: String = "flower"
+    @State private var guessesRemaining: Int = maxGuesses
+    @State private var imageName: String = "flower\(maxGuesses)"
     @State private var playAgainHidden: Bool = true
+    @State private var playAgainButtonLabel: String = "Another Word?"
     private let wordsToGuess: [String] = ["SWIFT",
                                           "DOG",
                                           "KITTY",
-                                          "ALMANC",
+                                          "ALMANAC",
                                           "SPANIEL",
                                           "TORNADO",
                                           "REFRIGERATOR"]
@@ -51,6 +54,8 @@ struct ContentView: View {
             Text(gameStatusMessage)
                 .font(.title)
                 .multilineTextAlignment(.center)
+                .frame(height: 80)
+                .minimumScaleFactor(0.5)
                 .padding()
             
             Text(revealedWord)
@@ -84,10 +89,12 @@ struct ContentView: View {
                                 return
                             }
                             guessALetter()
+                            updateGamePlay()
                         }
                     
                     Button("Guess a Letter:") {
                         guessALetter()
+                        updateGamePlay()
                     }
                     .disabled(currentLetterGuess.isEmpty)
                     .font(.title2)
@@ -95,12 +102,22 @@ struct ContentView: View {
                     .tint(Color.green)
                 }
             } else {
-                Button("Another Word?") {
-                    
+                Button(playAgainButtonLabel) {
+                    playAgainHidden = true
                     if currentWordIndex < wordsToGuess.count - 1 {
-                        currentWordIndex += 1
+                        wordToGuess = wordsToGuess[currentWordIndex]
+                        lettersGuessed = ""
+                        gameStatusMessage = "How Many Guesses to Uncover the Hidden Word?"
+                        revealedWord = "_" + String(repeating: " _", count: wordToGuess.count - 1)
+                        guessesRemaining = Self.maxGuesses
+                        imageName = "flower\(guessesRemaining)"
                     } else {
+                        gameStatusMessage = "Sorry, no more words to play with!"
+                        playAgainHidden = false
+                        playAgainButtonLabel = "Reset Game?"
                         currentWordIndex = 0
+                        wordsGuessed = 0
+                        wordsMissed = 0
                     }
                 }
                 .font(.title2)
@@ -115,7 +132,7 @@ struct ContentView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.white)
-                Image(imageName + "\(imageIndex)")
+                Image(imageName)
                     .resizable()
                     .scaledToFit()
             }
@@ -135,14 +152,33 @@ struct ContentView: View {
         revealedWord = wordToGuess.map { letter in
             lettersGuessed.contains(letter) ? String(letter) : "_"
         }.joined(separator: " ")
+
+    }
+    
+    func updateGamePlay() {
+        //TODO: Redo this with LocalizedStringKey and Inflect
+        gameStatusMessage = "You've Made \(lettersGuessed.count) Guess\(lettersGuessed.count == 1 ? "" : "es")"
         
         if !wordToGuess.contains(currentLetterGuess){
-            if imageIndex > 0 {
-                imageIndex -= 1
+            if guessesRemaining > 1 {
+                guessesRemaining -= 1
+                imageName = "flower\(guessesRemaining)"
             } else {
-                // You Failed
-                imageIndex = 8
+                // Word Missed
+                gameStatusMessage += "\nYou Lose! The word was: \(wordToGuess)"
+                imageName = "flower0"
+                wordsMissed += 1
+                currentWordIndex += 1
+                playAgainHidden = false
+                guessesRemaining = 8
             }
+        }
+        // Check if all Letters are correctly guessed
+        if !revealedWord.contains("_") {
+            gameStatusMessage += "\nYou Win!"
+            wordsGuessed += 1
+            currentWordIndex += 1
+            playAgainHidden = false
         }
         currentLetterGuess = ""
     }
