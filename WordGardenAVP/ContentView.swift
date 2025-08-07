@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVFAudio
 import RealityKit
 import RealityKitContent
 
@@ -25,6 +26,7 @@ struct ContentView: View {
     @State private var imageName: String = "flower\(maxGuesses)"
     @State private var playAgainHidden: Bool = true
     @State private var playAgainButtonLabel: String = "Another Word?"
+    @State private var audioPlayer: AVAudioPlayer!
     private let wordsToGuess: [String] = ["SWIFT",
                                           "DOG",
                                           "KITTY",
@@ -104,7 +106,7 @@ struct ContentView: View {
             } else {
                 Button(playAgainButtonLabel) {
                     playAgainHidden = true
-                    if currentWordIndex < wordsToGuess.count - 1 {
+                    if currentWordIndex < wordsToGuess.count {
                         wordToGuess = wordsToGuess[currentWordIndex]
                         lettersGuessed = ""
                         gameStatusMessage = "How Many Guesses to Uncover the Hidden Word?"
@@ -112,12 +114,7 @@ struct ContentView: View {
                         guessesRemaining = Self.maxGuesses
                         imageName = "flower\(guessesRemaining)"
                     } else {
-                        gameStatusMessage = "Sorry, no more words to play with!"
-                        playAgainHidden = false
-                        playAgainButtonLabel = "Reset Game?"
-                        currentWordIndex = 0
-                        wordsGuessed = 0
-                        wordsMissed = 0
+                        resetGame()
                     }
                 }
                 .font(.title2)
@@ -135,12 +132,11 @@ struct ContentView: View {
                 Image(imageName)
                     .resizable()
                     .scaledToFit()
+                    .animation(.easeIn(duration: 0.75), value: imageName)
             }
         }
         .onAppear() {
-            wordToGuess = wordsToGuess[currentWordIndex]
-            // CREATE A STRING FROM A REPEATING VALUE
-            revealedWord = "_" + String(repeating: " _", count: wordToGuess.count - 1)
+            resetGame()
         }
         //        .padding()
         
@@ -152,7 +148,7 @@ struct ContentView: View {
         revealedWord = wordToGuess.map { letter in
             lettersGuessed.contains(letter) ? String(letter) : "_"
         }.joined(separator: " ")
-
+        
     }
     
     func updateGamePlay() {
@@ -162,25 +158,74 @@ struct ContentView: View {
         if !wordToGuess.contains(currentLetterGuess){
             if guessesRemaining > 1 {
                 guessesRemaining -= 1
-                imageName = "flower\(guessesRemaining)"
+                // Wrong Guess: Animate crumbling leaf and play the incorrect sound
+                playSound(soundName: "incorrect")
+                imageName = "wilt\(guessesRemaining)"
+                // Delay change to flower image until after wilt animation is completed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                    imageName = "flower\(guessesRemaining)"
+                }
+                
             } else {
                 // Word Missed
                 gameStatusMessage += "\nYou Lose! The word was: \(wordToGuess)"
                 imageName = "flower0"
+                playSound(soundName: "word-not-guessed")
                 wordsMissed += 1
                 currentWordIndex += 1
                 playAgainHidden = false
                 guessesRemaining = 8
             }
+        } else {
+            playSound(soundName: "correct")
         }
+        
         // Check if all Letters are correctly guessed
         if !revealedWord.contains("_") {
             gameStatusMessage += "\nYou Win!"
+            playSound(soundName: "word-guessed")
             wordsGuessed += 1
             currentWordIndex += 1
             playAgainHidden = false
         }
         currentLetterGuess = ""
+        if currentWordIndex >= wordsToGuess.count {
+            playAgainButtonLabel = "Reset Game?"
+        }
+    }
+    
+    func resetGame() {
+        lettersGuessed = ""
+        playAgainHidden = true
+        playAgainButtonLabel = "Another Word?"
+        currentWordIndex = 0
+        wordsGuessed = 0
+        wordsMissed = 0
+        wordToGuess = wordsToGuess[currentWordIndex]
+        gameStatusMessage = "How Many Guesses to Uncover the Hidden Word?"
+        // CREATE A STRING FROM A REPEATING VALUE
+        revealedWord = "_" + String(repeating: " _", count: wordToGuess.count - 1)
+        guessesRemaining = Self.maxGuesses
+        imageName = "flower\(guessesRemaining)"
+    }
+    
+    func playSound(soundName: String) {
+        guard let soundFile = NSDataAsset(name: soundName) else {
+            print("😡 ERROR: Could not read sound file named \(soundName)")
+            return
+        }
+        do {
+            audioPlayer = try AVAudioPlayer(data: soundFile.data)
+            audioPlayer.play()
+        } catch {
+            print("😡 ERROR: -> \(error.localizedDescription) creating AVAudioPlayer")
+        }
+    }
+    
+    func stopSound() {
+        if audioPlayer != nil && audioPlayer.isPlaying {
+            audioPlayer.stop()
+        }
     }
 }
 
